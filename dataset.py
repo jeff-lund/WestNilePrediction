@@ -3,6 +3,44 @@ import numpy as np
 import os
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 
+def year(d):
+    return int(d.split('-')[0])
+
+def month(d):
+    return int(d.split('-')[1])
+
+def day(d):
+    return int(d.split('-')[2])
+
+def date(d):
+    return d.split('T')[0]
+
+def present_to_int(d):
+    w2v = {'positive' : 1, 'negative' : 0}
+    return w2v[d]
+
+def merge_test_keys():
+    # full Chicago WNV dataset
+    full = pd.read_csv(open('data/west-nile-virus-wnv-mosquito-test-results.csv', 'rb'))
+    # test data from kaggle competition
+    test = pd.read_csv(open('data/test.csv', 'rb'))
+
+    # preprocess full data set
+    full['Date'] = full['TEST DATE'].apply(date)
+
+    full['month'] = full.Date.apply(month)
+    full['day'] = full.Date.apply(day)
+    full = full.rename(index=str, columns={"SEASON YEAR" : "year"})
+    test['month'] = test.Date.apply(month)
+    test['day'] = test.Date.apply(day)
+    test['year'] = test.Date.apply(year)
+    full['WnvPresent'] = full.RESULT.apply(present_to_int)
+
+    full = full.rename(index=str, columns={"TRAP" : 'Trap'})
+    converted = pd.merge(test, full[['month', 'day', 'year', 'Trap', 'WnvPresent']], on=['month', 'day', 'year', 'Trap'])
+    converted = converted.drop(['month', 'day', 'year'], axis=1)
+    converted.to_csv('data/test_with_labels.csv', index=False)
+
 def vectorize_codesum(cs):
     codesum = ['BR', 'RA', 'VCFG', 'TS',
                'DZ', 'FG+', 'GR', 'FU',
@@ -17,12 +55,6 @@ def vectorize_codesum(cs):
         vec[codesum.index(code)] = 1
     return np.array(vec)
 
-def month(d):
-    return int(d.split('-')[1])
-
-def day(d):
-    return int(d.split('-')[2])
-
 def dataset(path='data'):
     codesum = ['BR', 'RA', 'VCFG', 'TS',
                'DZ', 'FG+', 'GR', 'FU',
@@ -31,12 +63,13 @@ def dataset(path='data'):
     # read in csv files
     train = pd.read_csv(os.path.join(path, 'train.csv'))
     weather = pd.read_csv(os.path.join(path, 'weather.csv'))
-    test = pd.read_csv(os.path.join(path, 'test.csv'))
-
+    #test = pd.read_csv(os.path.join(path, 'test.csv'))
+    test = pd.read_csv(os.path.join(path, 'test_with_labels.csv'))
     # preprocessing
     y_train = train.WnvPresent.values
+    y_test = test.WnvPresent.values
     x_train = train.drop(['Address', 'AddressNumberAndStreet','WnvPresent', 'NumMosquitos'], axis=1)
-    x_test = test.drop(['Id', 'Address', 'AddressNumberAndStreet'], axis=1)
+    x_test = test.drop(['Id', 'Address', 'AddressNumberAndStreet', 'WnvPresent'], axis=1)
 
     x_train['month'] = x_train.Date.apply(month)
     x_train['day'] = x_train.Date.apply(day)
@@ -93,4 +126,8 @@ def dataset(path='data'):
     scaler.transform(x_train)
     scaler.transform(x_test)
 
-    return x_train, y_train, x_test
+    return x_train, y_train, x_test, y_test
+
+
+if __name__ == '__main__':
+    merge_test_keys()
