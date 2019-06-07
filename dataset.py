@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 
 def vectorize_codesum(cs):
     codesum = ['BR', 'RA', 'VCFG', 'TS',
@@ -80,7 +80,17 @@ def dataset(path='data'):
     x_train['Trap'] = le.transform(x_train['Trap'].values)
     x_test['Trap'] = le.transform(x_test['Trap'].values)
 
+    # remove uninformative columns
+    for key in x_train:
+        if x_train[key].all() == -1:
+            x_train = x_train.drop([key], axis=1)
+            x_test = x_test.drop([key], axis=1)
+
     x_train = x_train.to_numpy(float)
     x_test = x_test.to_numpy(float)
+
+    scaler = StandardScaler().fit(x_train)
+    scaler.transform(x_train)
+    scaler.transform(x_test)
 
     return x_train, y_train, x_test
