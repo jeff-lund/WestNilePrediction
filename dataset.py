@@ -62,8 +62,7 @@ def shuffle(X, Y):
     Y = Y[shuffle]
     return X, Y
 
-def dataset():
-    def merge_test_keys():
+def merge_test_keys():
     # full Chicago WNV dataset
     full = pd.read_csv(open('data/west-nile-virus-wnv-mosquito-test-results.csv', 'rb'))
     # test data from kaggle competition
@@ -122,16 +121,18 @@ def dataset(path='data'):
 
     # process weather data
     # replace text/missing values
-    weather = weather.replace('M', None)
-    weather = weather.replace(['T', '  T', 'T ', ' T'], 0.0001)
-    weather = weather.replace('-', None)
+    weather = weather.replace('M', 0)
+    weather = weather.replace(['T', '  T', 'T ', ' T'], 0.001)
+    weather = weather.replace('-', 0)
+    if 'M' in weather:
+        input('holding')
     #change codesum strings in to vectors
-    code_vec = [vectorize_codesum(code) for code in weather['CodeSum']]
-    for i, code in enumerate(codesum):
-        temp = [v[i] for v in code_vec]
-        weather[code] = temp
+    #code_vec = [vectorize_codesum(code) for code in weather['CodeSum']]
+    #for i, code in enumerate(codesum):
+    #    temp = [v[i] for v in code_vec]
+    #    weather[code] = temp
     #weather["CodeVec"] = code_vec
-    weather = weather.drop('CodeSum', axis=1)
+    weather = weather.drop(['CodeSum', 'SnowFall', 'Depth'] , axis=1)
     # merge stations into single row
     w1 = weather[weather['Station']==1]
     w2 = weather[weather['Station']==2]
