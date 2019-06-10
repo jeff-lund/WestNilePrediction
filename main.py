@@ -17,25 +17,25 @@ import dataset
 import utility
 from time import time
 
-X, Y, x_test, y_test = dataset.dataset(pca=True, impute=True)
+X, Y, x_test, y_test = dataset.dataset(pca=False, impute=False)
 
 Y = to_categorical(Y, num_classes=2)
 y_test = to_categorical(y_test, num_classes=2)
 #optimizers = [Adadelta, Adam, SGD, Adagrad, RMSprop]
-#adam = Adam(lr=0.001)
-#sgd = SGD(lr=0.001, momentum=0.9)
-#ada = Adagrad(lr=0.001)
-ls = 32
-lrs = [0.01, 0.1]
-#, ('sgd', sgd), ('adagrad', ada)]
+
+
 metric = []
 
-epochs = [50, 100]
-adam = Adam(lr=0.00001)
+lrs = [0.0001, 0.001, 0.01]
+epochs = [50, 100, 200]
 
 for lr in lrs:
+
     sgd = SGD(lr=lr, momentum=0.90)
-    optimizers = [('sgd', sgd)]
+    adam = Adam(lr=lr)
+    ada = Adadelta()
+    optimizers = [('adam', adam), ('sgd', sgd)]
+
     for name, opt in optimizers:
         for e in epochs:
             print("Using optimizer:", name)
@@ -48,11 +48,11 @@ for lr in lrs:
             for i, (train_index, valid_index) in enumerate(kf.split(X)):
                 start = time()
                 print("Fold", i)
+                model = create_model(input_dim=X[0].shape[0])
+                model.compile(optimizer=opt, loss='categorical_crossentropy')
                 X, Y = dataset.shuffle(X, Y)
                 x_train = X[train_index]
                 y_train = Y[train_index]
-                model = create_model(input_dim=X[0].shape[0], layer_size=ls)
-                model.compile(optimizer=opt, loss='categorical_crossentropy')
                 x_valid = X[valid_index]
                 y_valid = Y[valid_index]
                 history = model.fit(x_train, y_train,

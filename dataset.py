@@ -42,6 +42,11 @@ def merge_test_keys(path='data'):
     converted = converted.drop(['month', 'day', 'year'], axis=1)
     converted.to_csv(os.path.join(path, 'test_with_labels.csv'), index=False)
 
+def adjust_species(mosquito):
+    if mosquito ==  'UNSPECIFIED CULEX':
+        return 'CULEX PIPIENS'
+    return mosquito
+
 def impute(col):
     for i in range(len(col)):
         if col[i] == np.nan:
@@ -99,7 +104,7 @@ def dataset(path='data', pca=False, impute=False):
     x_train['day'] = x_train.Date.apply(day)
     x_test['month'] = x_test.Date.apply(month)
     x_test['day'] = x_test.Date.apply(day)
-
+    x_test['Species'] = x_test.Species.apply(adjust_species)
     # process weather data
     # replace text/missing values
 
