@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.decomposition import PCA
 
 def year(d):
     return int(d.split('-')[0])
@@ -98,7 +99,8 @@ def vectorize_codesum(cs):
         vec[codesum.index(code)] = 1
     return np.array(vec)
 
-def dataset(path='data'):
+def dataset(path='data', pca=False):
+    le = LabelEncoder()
     codesum = ['BR', 'RA', 'VCFG', 'TS',
                'DZ', 'FG+', 'GR', 'FU',
                'SN', 'TSRA', 'VCTS', 'SQ', 'FG',
@@ -111,8 +113,8 @@ def dataset(path='data'):
     # preprocessing
     y_train = train.WnvPresent.values
     y_test = test.WnvPresent.values
-    x_train = train.drop(['Address', 'AddressNumberAndStreet','WnvPresent', 'NumMosquitos'], axis=1)
-    x_test = test.drop(['Id', 'Address', 'AddressNumberAndStreet', 'WnvPresent'], axis=1)
+    x_train = train.drop(['Address', 'AddressNumberAndStreet','WnvPresent', 'NumMosquitos', 'AddressAccuracy'], axis=1)
+    x_test = test.drop(['Id', 'Address', 'AddressNumberAndStreet', 'WnvPresent', 'AddressAccuracy'], axis=1)
 
     x_train['month'] = x_train.Date.apply(month)
     x_train['day'] = x_train.Date.apply(day)
@@ -124,28 +126,24 @@ def dataset(path='data'):
     weather = weather.replace('M', 0)
     weather = weather.replace(['T', '  T', 'T ', ' T'], 0.001)
     weather = weather.replace('-', 0)
-    if 'M' in weather:
-        input('holding')
-    #change codesum strings in to vectors
-    #code_vec = [vectorize_codesum(code) for code in weather['CodeSum']]
-    #for i, code in enumerate(codesum):
-    #    temp = [v[i] for v in code_vec]
-    #    weather[code] = temp
-    #weather["CodeVec"] = code_vec
-    weather = weather.drop(['CodeSum', 'SnowFall', 'Depth'] , axis=1)
+    weather = weather.drop(['Water1', 'SnowFall', 'Depth', 'CodeSum'] , axis=1)
+    '''
+    le.fit(list(weather['CodeSum'].values))
+    weather['CodeSum'] = le.transform(weather['CodeSum'].values)
+    '''
     # merge stations into single row
-    w1 = weather[weather['Station']==1]
-    w2 = weather[weather['Station']==2]
-    w1 = w1.drop('Station', axis=1)
-    w2 = w2.drop('Station', axis=1)
-    weather = w1.merge(w2, on='Date')
+    #w1 = weather[weather['Station']==1]
+    #w2 = weather[weather['Station']==2]
+    #w1 = w1.drop('Station', axis=1)
+    #w2 = w2.drop('Station', axis=1)
+    #weather = w1.merge(w2, on='Date')
+    weather = weather[weather['Station']==1]
 
     x_train = x_train.merge(weather, on='Date')
     x_test = x_test.merge(weather, on='Date')
     x_train = x_train.drop(['Date'], axis=1)
     x_test = x_test.drop(['Date'], axis=1)
 
-    le = LabelEncoder()
     le.fit(list(x_train['Species'].values) + list(x_test['Species'].values))
     x_train['Species'] = le.transform(x_train['Species'].values)
     x_test['Species'] = le.transform(x_test['Species'].values)
@@ -158,18 +156,20 @@ def dataset(path='data'):
     x_train['Trap'] = le.transform(x_train['Trap'].values)
     x_test['Trap'] = le.transform(x_test['Trap'].values)
 
-    # remove uninformative columns
-    for key in x_train:
-        if x_train[key].all() == -1:
-            x_train = x_train.drop([key], axis=1)
-            x_test = x_test.drop([key], axis=1)
-
     x_train = x_train.to_numpy(float)
     x_test = x_test.to_numpy(float)
 
     scaler = StandardScaler().fit(x_train)
     x_train = scaler.transform(x_train)
     x_test = scaler.transform(x_test)
+
+    if pca:
+        print(len(x_train[0]))
+        pca_model = PCA(.95)
+        pca_model.fit(x_train)
+        print(pca_model.n_components_)
+        x_train = pca_model.transform(x_train)
+        x_test = pca_model.transform(x_test)
 
     return x_train, y_train, x_test, y_test
 
@@ -212,42 +212,14 @@ def dataset2(path='data'):
     weather = weather.replace('M', None)
     weather = weather.replace('-', None)
 
-    # encode CodeSum strings
-    #le.fit(list(weather['CodeSum']))
-    #weather['CodeSum'] = le.transform(weather['CodeSum'])
-
-    #change codesum strings in to vectors
-    #code_vec = [vectorize_codesum(code) for code in weather['CodeSum']]
-    #for i, code in enumerate(codesum):
-    #    temp = [v[i] for v in code_vec]
-    #    weather[code] = temp
-    #weather["CodeVec"] = code_vec
-    #weather = weather.drop('CodeSum', axis=1)
-
-    # merge stations into single row
-    w1 = weather[weather['Station']==1]
-    w2 = weather[weather['Station']==2]
-    w1 = w1.drop('Station', axis=1)
-    w2 = w2.drop('Station', axis=1)
-    #weather = w1.merge(w2, on='Date')
-    weather = w1
+    # only use data from station 1
+    weather = weather[weather['Station']==1]
+    weather = weather.drop("Station", axis=1)
 
     x_train = x_train.merge(weather, on='Date')
     x_test = x_test.merge(weather, on='Date')
     x_train = x_train.drop(['Date'], axis=1)
     x_test = x_test.drop(['Date'], axis=1)
-
-    '''
-    le.fit(list(x_train['Species'].values) + list(x_test['Species'].values))
-    x_train['Species'] = le.transform(x_train['Species'].values)
-    x_test['Species'] = le.transform(x_test['Species'].values)
-
-    # remove uninformative columns
-    for key in x_train:
-        if x_train[key].all() == -1:
-            x_train = x_train.drop([key], axis=1)
-            x_test = x_test.drop([key], axis=1)
-    '''
 
     x_train = x_train.to_numpy(float)
     x_test = x_test.to_numpy(float)
