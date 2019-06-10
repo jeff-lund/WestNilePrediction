@@ -20,11 +20,11 @@ def present_to_int(d):
     w2v = {'positive' : 1, 'negative' : 0}
     return w2v[d]
 
-def merge_test_keys():
+def merge_test_keys(path='data'):
     # full Chicago WNV dataset
-    full = pd.read_csv(open('data/west-nile-virus-wnv-mosquito-test-results.csv', 'rb'))
+    full = pd.read_csv(open(os.path.join(path, 'west-nile-virus-wnv-mosquito-test-results.csv', 'rb')))
     # test data from kaggle competition
-    test = pd.read_csv(open('data/test.csv', 'rb'))
+    test = pd.read_csv(open(os.path.join(path, 'data/test.csv', 'rb')))
 
     # preprocess full data set
     full['Date'] = full['TEST DATE'].apply(date)
@@ -40,21 +40,15 @@ def merge_test_keys():
     full = full.rename(index=str, columns={"TRAP" : 'Trap'})
     converted = pd.merge(test, full[['month', 'day', 'year', 'Trap', 'WnvPresent']], on=['month', 'day', 'year', 'Trap'])
     converted = converted.drop(['month', 'day', 'year'], axis=1)
-    converted.to_csv('data/test_with_labels.csv', index=False)
+    converted.to_csv(os.path.join(path, 'test_with_labels.csv'), index=False)
 
-def vectorize_codesum(cs):
-    codesum = ['BR', 'RA', 'VCFG', 'TS',
-               'DZ', 'FG+', 'GR', 'FU',
-               'SN', 'TSRA', 'VCTS', 'SQ', 'FG',
-               'BCFG', 'MIFG', 'HZ']
-    vec = [0 for _ in range(len(codesum))]
-    if cs == ' ':
-        return np.array(vec)
-    for code in cs.split(' '):
-        if code == ' ' or code == '':
-            continue
-        vec[codesum.index(code)] = 1
-    return np.array(vec)
+def impute(col):
+    for i in range(len(col)):
+        if col[i] == np.nan:
+            col[i] = float(col[i-1])
+        else:
+            col[i] = float(col[i])
+    return col
 
 def shuffle(X, Y):
     shuffle = np.arange(len(X))
@@ -85,21 +79,7 @@ def merge_test_keys():
     converted = converted.drop(['month', 'day', 'year'], axis=1)
     converted.to_csv('data/test_with_labels.csv', index=False)
 
-def vectorize_codesum(cs):
-    codesum = ['BR', 'RA', 'VCFG', 'TS',
-               'DZ', 'FG+', 'GR', 'FU',
-               'SN', 'TSRA', 'VCTS', 'SQ', 'FG',
-               'BCFG', 'MIFG', 'HZ']
-    vec = [0 for _ in range(len(codesum))]
-    if cs == ' ':
-        return np.array(vec)
-    for code in cs.split(' '):
-        if code == ' ' or code == '':
-            continue
-        vec[codesum.index(code)] = 1
-    return np.array(vec)
-
-def dataset(path='data', pca=False):
+def dataset(path='data', pca=False, impute=False):
     le = LabelEncoder()
     codesum = ['BR', 'RA', 'VCFG', 'TS',
                'DZ', 'FG+', 'GR', 'FU',
@@ -108,7 +88,6 @@ def dataset(path='data', pca=False):
     # read in csv files
     train = pd.read_csv(os.path.join(path, 'train.csv'))
     weather = pd.read_csv(os.path.join(path, 'weather.csv'))
-    #test = pd.read_csv(os.path.join(path, 'test.csv'))
     test = pd.read_csv(os.path.join(path, 'test_with_labels.csv'))
     # preprocessing
     y_train = train.WnvPresent.values
@@ -123,21 +102,30 @@ def dataset(path='data', pca=False):
 
     # process weather data
     # replace text/missing values
-    weather = weather.replace('M', 0)
+
     weather = weather.replace(['T', '  T', 'T ', ' T'], 0.001)
-    weather = weather.replace('-', 0)
+    weather = weather[weather['Station']==1]
     weather = weather.drop(['Water1', 'SnowFall', 'Depth', 'CodeSum'] , axis=1)
-    '''
-    le.fit(list(weather['CodeSum'].values))
-    weather['CodeSum'] = le.transform(weather['CodeSum'].values)
-    '''
+    if impute:
+        weather = weather.replace('M', np.nan)
+        weather = weather.replace('-', np.nan)
+        for key in weather:
+            if key == 'Date' or key == 'station':
+                continue
+            weather[key] = weather[key].astype(float)
+        weather = weather.interpolate()
+    else:
+        weather = weather.replace('M', 0)
+        weather = weather.replace('-', 0)
     # merge stations into single row
     #w1 = weather[weather['Station']==1]
     #w2 = weather[weather['Station']==2]
     #w1 = w1.drop('Station', axis=1)
     #w2 = w2.drop('Station', axis=1)
     #weather = w1.merge(w2, on='Date')
-    weather = weather[weather['Station']==1]
+
+    # uncomment to only use station 1
+
 
     x_train = x_train.merge(weather, on='Date')
     x_test = x_test.merge(weather, on='Date')
