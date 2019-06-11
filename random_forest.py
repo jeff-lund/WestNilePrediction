@@ -17,7 +17,9 @@ def plot_roc(clf, file_name='temp.png'):
     fpr, tpr, thresholds = metrics.roc_curve(y_test, predictions, pos_label=1)
     
     auc = metrics.auc(fpr, tpr)
-    print(auc)
+    tr_auc = metrics.auc(tr_fpr, tr_tpr)
+    print("Test AUC: "+ str(auc))
+    print("Train AUC: "+ str(tr_auc))
 
     plt.plot(fpr, tpr, color='magenta', label='Test')
     plt.plot(tr_fpr, tr_tpr, color='teal', label='Training')
@@ -73,8 +75,8 @@ def experiment(test_list, classifiers, xlabel='', plot_title='',
 # Which tests to run
 #-----------------------------------------------------------------------------
 HYPER_PARAMS = False
-ROC = True
-GRID_SEARCH = False
+ROC = False
+GRID_SEARCH = True
 
 #-----------------------------------------------------------------------------
 # Load data
