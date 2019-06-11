@@ -1,3 +1,6 @@
+# Jeff Lund, Hannah Femling, Colleen Rooney
+# functions to import and preprocess WNV datasets
+
 import pandas as pd
 import numpy as np
 import os
@@ -20,42 +23,18 @@ def present_to_int(d):
     w2v = {'positive' : 1, 'negative' : 0}
     return w2v[d]
 
-def merge_test_keys(path='data'):
-    # full Chicago WNV dataset
-    full = pd.read_csv(open(os.path.join(path, 'west-nile-virus-wnv-mosquito-test-results.csv', 'rb')))
-    # test data from kaggle competition
-    test = pd.read_csv(open(os.path.join(path, 'data/test.csv', 'rb')))
-
-    # preprocess full data set
-    full['Date'] = full['TEST DATE'].apply(date)
-
-    full['month'] = full.Date.apply(month)
-    full['day'] = full.Date.apply(day)
-    full = full.rename(index=str, columns={"SEASON YEAR" : "year"})
-    test['month'] = test.Date.apply(month)
-    test['day'] = test.Date.apply(day)
-    test['year'] = test.Date.apply(year)
-    full['WnvPresent'] = full.RESULT.apply(present_to_int)
-
-    full = full.rename(index=str, columns={"TRAP" : 'Trap'})
-    converted = pd.merge(test, full[['month', 'day', 'year', 'Trap', 'WnvPresent']], on=['month', 'day', 'year', 'Trap'])
-    converted = converted.drop(['month', 'day', 'year'], axis=1)
-    converted.to_csv(os.path.join(path, 'test_with_labels.csv'), index=False)
-
 def adjust_species(mosquito):
+    '''
+    UNSPECIFIED CULEX only appears in test set,
+    replace with CULEX PIPENS which is one of the more
+    common species
+    '''
     if mosquito ==  'UNSPECIFIED CULEX':
         return 'CULEX PIPIENS'
     return mosquito
 
-def impute(col):
-    for i in range(len(col)):
-        if col[i] == np.nan:
-            col[i] = float(col[i-1])
-        else:
-            col[i] = float(col[i])
-    return col
-
 def shuffle(X, Y):
+    ''' randomly shuffles a dataset(X) and its labels(Y)'''
     shuffle = np.arange(len(X))
     np.random.shuffle(shuffle)
     X = X[shuffle]
@@ -63,6 +42,10 @@ def shuffle(X, Y):
     return X, Y
 
 def merge_test_keys():
+    '''
+    Creates a new csv file from the Kaggle test set with the WNVPresent labels
+    from the full WNV-Test dataset
+    '''
     # full Chicago WNV dataset
     full = pd.read_csv(open('data/west-nile-virus-wnv-mosquito-test-results.csv', 'rb'))
     # test data from kaggle competition
@@ -85,6 +68,13 @@ def merge_test_keys():
     converted.to_csv('data/test_with_labels.csv', index=False)
 
 def dataset(path='data', pca=False, impute=False):
+    '''
+    returns training and test datasets as numpy 2d arrays
+    pca := apply PCA for dimensionality reduction, defaults to false
+    impute := use interpolation to fill in missing values
+              if false then fills in missing values with -1
+    '''
+    merge_test_keys()
     le = LabelEncoder()
     codesum = ['BR', 'RA', 'VCFG', 'TS',
                'DZ', 'FG+', 'GR', 'FU',
@@ -100,14 +90,16 @@ def dataset(path='data', pca=False, impute=False):
     x_train = train.drop(['Address', 'AddressNumberAndStreet','WnvPresent', 'NumMosquitos', 'AddressAccuracy'], axis=1)
     x_test = test.drop(['Id', 'Address', 'AddressNumberAndStreet', 'WnvPresent', 'AddressAccuracy'], axis=1)
 
+    # split day/month from date into seperate columns
     x_train['month'] = x_train.Date.apply(month)
     x_train['day'] = x_train.Date.apply(day)
     x_test['month'] = x_test.Date.apply(month)
     x_test['day'] = x_test.Date.apply(day)
+    # set unknown species to pipex
     x_test['Species'] = x_test.Species.apply(adjust_species)
+
     # process weather data
     # replace text/missing values
-
     weather = weather.replace(['T', '  T', 'T ', ' T'], 0.001)
     weather = weather[weather['Station']==1]
     weather = weather.drop(['Water1', 'SnowFall', 'Depth', 'CodeSum'] , axis=1)
@@ -120,17 +112,8 @@ def dataset(path='data', pca=False, impute=False):
             weather[key] = weather[key].astype(float)
         weather = weather.interpolate()
     else:
-        weather = weather.replace('M', 0)
-        weather = weather.replace('-', 0)
-    # merge stations into single row
-    #w1 = weather[weather['Station']==1]
-    #w2 = weather[weather['Station']==2]
-    #w1 = w1.drop('Station', axis=1)
-    #w2 = w2.drop('Station', axis=1)
-    #weather = w1.merge(w2, on='Date')
-
-    # uncomment to only use station 1
-
+        weather = weather.replace('M', -1)
+        weather = weather.replace('-', -1)
 
     x_train = x_train.merge(weather, on='Date')
     x_test = x_test.merge(weather, on='Date')
@@ -157,10 +140,8 @@ def dataset(path='data', pca=False, impute=False):
     x_test = scaler.transform(x_test)
 
     if pca:
-        print(len(x_train[0]))
         pca_model = PCA(.95)
         pca_model.fit(x_train)
-        print(pca_model.n_components_)
         x_train = pca_model.transform(x_train)
         x_test = pca_model.transform(x_test)
 
@@ -199,7 +180,7 @@ def dataset2(path='data'):
 
     # process weather data
     # replace text/missing values
-    # replcaing trace values with small number
+    # replacing trace values with small number
     weather = weather.replace(['T', '  T', 'T ', ' T'], 0.0001)
     # Replaces missing values with adjacent values
     weather = weather.replace('M', None)
