@@ -18,7 +18,7 @@ google_drive_download() {
      }
 
 # Change this variable to download data to a different directory
-DIR=input
+DIR=data
 
 # Exit script if directory already exists
 if [ -d "$DIR" ]; then
@@ -45,3 +45,8 @@ echo "--------------------------------------------------------------------------
 echo ""
 unzip $compdata
 unzip $moredata
+
+for file in $PWD/*
+do
+	chmod 644 $file
+done
