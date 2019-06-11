@@ -10,6 +10,25 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import GridSearchCV
 import dataset
 
+def plot_roc(clf, file_name='temp.png'):
+    predictions = clf.predict_proba(X)[:,1]
+    tr_fpr, tr_tpr, thresholds = metrics.roc_curve(Y, predictions, pos_label=1)
+    predictions = clf.predict_proba(x_test)[:,1]
+    fpr, tpr, thresholds = metrics.roc_curve(y_test, predictions, pos_label=1)
+    
+    auc = metrics.auc(fpr, tpr)
+    print(auc)
+
+    plt.plot(fpr, tpr, color='magenta', label='Test')
+    plt.plot(tr_fpr, tr_tpr, color='teal', label='Training')
+    plt.ylabel('True Positive Rate')
+    plt.xlabel('False Positive Rate')
+    plt.title('Random Forest ROC Curve')
+    plt.legend()
+    plt.savefig(file_name)
+    plt.show()
+
+
 def experiment(test_list, classifiers, xlabel='', plot_title='',
         file_name='temp.png', plot=True):
     test_auc = []
@@ -111,23 +130,8 @@ if HYPER_PARAMS:
 if ROC:
     clf = ensemble.RandomForestClassifier(n_jobs=4)
     clf.fit(X, Y)
+    plot_roc(clf, 'naive_RF_ROC.png')
 
-    predictions = clf.predict_proba(X)[:,1]
-    tr_fpr, tr_tpr, thresholds = metrics.roc_curve(Y, predictions, pos_label=1)
-    predictions = clf.predict_proba(x_test)[:,1]
-    fpr, tpr, thresholds = metrics.roc_curve(y_test, predictions, pos_label=1)
-    
-    auc = metrics.auc(fpr, tpr)
-    print(auc)
-
-    plt.plot(fpr, tpr, color='magenta', label='Test')
-    plt.plot(tr_fpr, tr_tpr, color='teal', label='Training')
-    plt.ylabel('True Positive Rate')
-    plt.xlabel('False Positive Rate')
-    plt.title('Random Forest ROC Curve')
-    plt.legend()
-    plt.savefig('naive_RF_ROC.png')
-    plt.show()
 
 #-----------------------------------------------------------------------------
 # Use GridSearchCV to select hyperparameters and plot ROC
@@ -147,17 +151,5 @@ if GRID_SEARCH:
     print(clf.best_score_)
 
     best_model = clf.best_estimator_
+    plot_roc(best_model, 'GS_RF_ROC.png')
 
-    predictions = best_model.predict_proba(X)[:,1]
-    tr_fpr, tr_tpr, thresholds = metrics.roc_curve(Y, predictions, pos_label=1)
-    predictions = best_model.predict_proba(x_test)[:,1]
-    fpr, tpr, thresholds = metrics.roc_curve(y_test, predictions, pos_label=1)
-
-    plt.plot(fpr, tpr, color='magenta', label='Test')
-    plt.plot(tr_fpr, tr_tpr, color='teal', label='Training')
-    plt.ylabel('True Positive Rate')
-    plt.xlabel('False Positive Rate')
-    plt.title('Random Forest ROC Curve')
-    plt.legend()
-    plt.savefig('RF_ROC.png')
-    plt.show()
